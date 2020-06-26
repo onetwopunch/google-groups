@@ -23,7 +23,7 @@ func main() {
 		log.Fatalf("A gsuite email must be provided for the subject")
 	}
 
-	f, err := fetcher.NewGroupFetcher(*keyFile, *impersonate, *subject, *recurseDepth)
+	f, err := fetcher.NewDefaultGroupFetcher(*keyFile, *impersonate, *subject, *recurseDepth)
 	if err != nil {
 		log.Fatal(err)
 	}

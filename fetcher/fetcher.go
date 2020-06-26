@@ -10,14 +10,19 @@ import (
 )
 
 type GroupFetcher struct {
-	adminService    *admin.Service
+	AdminService    *admin.Service
 	ctx             context.Context
-	subject         string
-	maxRecurseDepth int
-	groups          []string
+	Subject         string
+	MaxRecurseDepth int
+	Groups          []string
 }
 
-func NewGroupFetcher(keyFile, impersonate, subject string, depth int) (*GroupFetcher, error) {
+func NewDefaultGroupFetcher(keyFile, impersonate, subject string, depth int) (*GroupFetcher, error) {
+	ctx := context.Background()
+	return NewGroupFetcher(ctx, keyFile, impersonate, subject, depth)
+}
+
+func NewGroupFetcher(ctx context.Context, keyFile, impersonate, subject string, depth int) (*GroupFetcher, error) {
 	keyJson, err := ioutil.ReadFile(keyFile)
 	if err != nil {
 		return nil, err
@@ -27,20 +32,22 @@ func NewGroupFetcher(keyFile, impersonate, subject string, depth int) (*GroupFet
 		return nil, fmt.Errorf("Unable to read JSON service account %s", err)
 	}
 	config.Subject = impersonate
-	ctx := context.Background()
-	svc, err := admin.NewService(ctx, option.WithHTTPClient(config.Client(ctx)))
 
+	svc, err := admin.NewService(ctx, option.WithHTTPClient(config.Client(ctx)))
+	if err != nil {
+		return nil, err
+	}
 	return &GroupFetcher{
-		adminService:    svc,
+		MaxRecurseDepth: depth,
+		Subject:         subject,
 		ctx:             ctx,
-		maxRecurseDepth: depth,
-		subject:         subject,
+		AdminService:    svc,
 	}, nil
 }
 
 func (f *GroupFetcher) Search(visited map[string]bool, subject string, depth int) error {
 	newGroups := []string{}
-	call := f.adminService.Groups.List().UserKey(subject).Fields("nextPageToken", "groups(email)")
+	call := f.AdminService.Groups.List().UserKey(subject).Fields("nextPageToken", "groups(email)")
 	if err := call.Pages(f.ctx, func(groups *admin.Groups) error {
 		for _, group := range groups.Groups {
 			if _, ok := visited[group.Email]; ok {
@@ -65,7 +72,7 @@ func (f *GroupFetcher) Search(visited map[string]bool, subject string, depth int
 func (f *GroupFetcher) ListGoogleGroups() ([]string, error) {
 	userGroupsMap := make(map[string]bool)
 
-	if err := f.Search(userGroupsMap, f.subject, f.maxRecurseDepth); err != nil {
+	if err := f.Search(userGroupsMap, f.Subject, f.MaxRecurseDepth); err != nil {
 		return nil, err
 	}
 	// Convert set to list
