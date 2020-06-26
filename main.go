@@ -23,12 +23,12 @@ func main() {
 		log.Fatalf("A gsuite email must be provided for the subject")
 	}
 
-	f, err := fetcher.NewDefaultGroupFetcher(*keyFile, *impersonate, *subject, *recurseDepth)
+	f, err := fetcher.NewDefaultGroupFetcher(*keyFile, *impersonate, *recurseDepth)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	groups, err := f.ListGoogleGroups()
+	groups, err := f.ListGoogleGroups(*subject)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -12,17 +12,16 @@ import (
 type GroupFetcher struct {
 	AdminService    *admin.Service
 	ctx             context.Context
-	Subject         string
 	MaxRecurseDepth int
 	Groups          []string
 }
 
-func NewDefaultGroupFetcher(keyFile, impersonate, subject string, depth int) (*GroupFetcher, error) {
+func NewDefaultGroupFetcher(keyFile, impersonate string, depth int) (*GroupFetcher, error) {
 	ctx := context.Background()
-	return NewGroupFetcher(ctx, keyFile, impersonate, subject, depth)
+	return NewGroupFetcher(ctx, keyFile, impersonate, depth)
 }
 
-func NewGroupFetcher(ctx context.Context, keyFile, impersonate, subject string, depth int) (*GroupFetcher, error) {
+func NewGroupFetcher(ctx context.Context, keyFile, impersonate string, depth int) (*GroupFetcher, error) {
 	keyJson, err := ioutil.ReadFile(keyFile)
 	if err != nil {
 		return nil, err
@@ -39,7 +38,6 @@ func NewGroupFetcher(ctx context.Context, keyFile, impersonate, subject string, 
 	}
 	return &GroupFetcher{
 		MaxRecurseDepth: depth,
-		Subject:         subject,
 		ctx:             ctx,
 		AdminService:    svc,
 	}, nil
@@ -69,10 +67,10 @@ func (f *GroupFetcher) Search(visited map[string]bool, subject string, depth int
 	return nil
 }
 
-func (f *GroupFetcher) ListGoogleGroups() ([]string, error) {
+func (f *GroupFetcher) ListGoogleGroups(subject string) ([]string, error) {
 	userGroupsMap := make(map[string]bool)
 
-	if err := f.Search(userGroupsMap, f.Subject, f.MaxRecurseDepth); err != nil {
+	if err := f.Search(userGroupsMap, subject, f.MaxRecurseDepth); err != nil {
 		return nil, err
 	}
 	// Convert set to list
