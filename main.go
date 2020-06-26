@@ -24,7 +24,7 @@ func main() {
 	keyFile := flag.String("key-file", "", "Service Account Key JSON file path")
 	impersonate := flag.String("impersonate", "", "GSuite admin email to impersonate")
 	subject := flag.String("subject", "", "GSuite user for which to fetch groups")
-	recurseDepth := flag.Int("depth", 0, "Depth of recursion. i.e user belongs to group, which belongs to group, etc")
+	recurseDepth := flag.Int("depth", 0, "(optional) Depth of recursion if desired. i.e user belongs to group, which belongs to group, etc")
 	flag.Parse()
 
 	if len(*impersonate) == 0 {
