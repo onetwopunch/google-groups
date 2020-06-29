@@ -4,23 +4,41 @@ import (
 	"context"
 	"fmt"
 	"golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/jwt"
 	admin "google.golang.org/api/admin/directory/v1"
 	"google.golang.org/api/option"
 	"io/ioutil"
 )
 
 type GroupFetcher struct {
+	Config       *jwt.Config
 	AdminService *admin.Service
-	ctx          context.Context
-	Groups       []string
+	Context      context.Context
 }
 
 func NewDefaultGroupFetcher(keyFile, impersonate string) (*GroupFetcher, error) {
 	ctx := context.Background()
-	return NewGroupFetcher(ctx, keyFile, impersonate)
+	f, err := NewGroupFetcher(keyFile, impersonate)
+	if err != nil {
+		return nil, err
+	}
+	err = f.SetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
-func NewGroupFetcher(ctx context.Context, keyFile, impersonate string) (*GroupFetcher, error) {
+func (f *GroupFetcher) SetContext(ctx context.Context) error {
+	if svc, err := admin.NewService(ctx, option.WithHTTPClient(f.Config.Client(ctx))); err != nil {
+		return err
+	} else {
+		f.AdminService = svc
+		return nil
+	}
+}
+
+func NewGroupFetcher(keyFile, impersonate string) (*GroupFetcher, error) {
 	keyJson, err := ioutil.ReadFile(keyFile)
 	if err != nil {
 		return nil, err
@@ -31,20 +49,15 @@ func NewGroupFetcher(ctx context.Context, keyFile, impersonate string) (*GroupFe
 	}
 	config.Subject = impersonate
 
-	svc, err := admin.NewService(ctx, option.WithHTTPClient(config.Client(ctx)))
-	if err != nil {
-		return nil, err
-	}
 	return &GroupFetcher{
-		ctx:          ctx,
-		AdminService: svc,
+		Config: config,
 	}, nil
 }
 
 func (f *GroupFetcher) Search(visited map[string]bool, subject string, depth int) error {
 	newGroups := []string{}
 	call := f.AdminService.Groups.List().UserKey(subject).Fields("nextPageToken", "groups(email)")
-	if err := call.Pages(f.ctx, func(groups *admin.Groups) error {
+	if err := call.Pages(f.Context, func(groups *admin.Groups) error {
 		for _, group := range groups.Groups {
 			if _, ok := visited[group.Email]; ok {
 				continue
@@ -53,9 +66,11 @@ func (f *GroupFetcher) Search(visited map[string]bool, subject string, depth int
 			newGroups = append(newGroups, group.Email)
 		}
 		// Only recursively search for new groups that we haven't seen
-		for _, email := range newGroups {
-			if err := f.Search(visited, email, depth-1); err != nil {
-				return err
+		if depth > 0 {
+			for _, email := range newGroups {
+				if err := f.Search(visited, email, depth-1); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
